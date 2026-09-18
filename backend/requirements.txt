@@ -6,3 +6,7 @@ python-dotenv==1.2.3
 python-multipart==0.0.32
 SQLAlchemy==2.0.54
 uvicorn==0.53.0
+langgraph>=0.2.14
+langchain-google-genai>=1.0.8
+langchain-core>=0.2.33
+PyPDF2>=3.0.1

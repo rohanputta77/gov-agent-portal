@@ -14,13 +14,14 @@ export default function DomainChatPage({ domain, onNavigate }: Props) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [state, setState] = useState<any>(null);
+  const [agentTrace, setAgentTrace] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, agentTrace]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +34,7 @@ export default function DomainChatPage({ domain, onNavigate }: Props) {
     const currentHistory = [...messages];
     setMessages(prev => [...prev, { role: "user", content: userMsg }]);
     setLoading(true);
+    setAgentTrace([]); // clear trace for new request
 
     try {
       const res = await api.chatRequest(domain, userMsg, currentHistory);
@@ -40,6 +42,9 @@ export default function DomainChatPage({ domain, onNavigate }: Props) {
       setMessages(prev => [...prev, { role: "assistant", content: res.reply }]);
       if (res.state) {
         setState(res.state);
+      }
+      if (res.agent_trace) {
+        setAgentTrace(res.agent_trace);
       }
     } catch (err: any) {
       setMessages(prev => [...prev, { role: "assistant", content: "Sorry, I encountered an error. Please try again." }]);
@@ -81,11 +86,37 @@ export default function DomainChatPage({ domain, onNavigate }: Props) {
               </div>
             </div>
           ))}
+          
           {loading && (
             <div className="flex justify-start">
               <div className="bg-white border border-slate-100 text-slate-400 rounded-2xl rounded-bl-none px-5 py-3.5 text-sm shadow-sm flex gap-1">
                 <span className="animate-bounce">●</span><span className="animate-bounce delay-100">●</span><span className="animate-bounce delay-200">●</span>
               </div>
+            </div>
+          )}
+          
+          {/* Agent Trace Panel when responding */}
+          {agentTrace.length > 0 && !loading && (
+            <div className="flex justify-start mt-2 mb-2 w-full">
+                <div className="bg-slate-800 text-slate-300 text-xs rounded-xl p-4 w-full shadow-inner font-mono">
+                  <div className="font-bold text-slate-100 mb-2 uppercase tracking-widest text-[10px]">Agent Activity Trace</div>
+                  <div className="space-y-3">
+                    {agentTrace.map((trace, idx) => (
+                      <div key={idx} className="flex flex-col gap-1 border-l-2 border-indigo-500 pl-3 py-1">
+                        <div className="flex justify-between items-center text-slate-100 font-semibold">
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-emerald-400">✓</span>
+                            {trace.agent}
+                          </span>
+                          <span className="text-slate-500">{trace.duration_ms}ms</span>
+                        </div>
+                        <div className="text-slate-400 ml-4 break-words leading-relaxed whitespace-pre-wrap">
+                            → {trace.summary}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
             </div>
           )}
         </div>
