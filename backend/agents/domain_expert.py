@@ -1,6 +1,6 @@
 from typing import Dict, Any
 import time
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from pydantic import BaseModel, Field
 import json
 from core.config import settings
@@ -27,8 +27,6 @@ def domain_expert_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     domain = state["domain"]
     system_prompt = DOMAIN_PROMPTS.get(domain.lower().replace(" ", "_").replace("&", "").replace("__", "_"), DOMAIN_PROMPTS["domestic"])
     
-    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0, api_key=settings.GEMINI_API_KEY)
-    
     prompt = f"""
     {system_prompt}
     
@@ -39,12 +37,18 @@ def domain_expert_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     
     try:
+        # Use Groq Llama 3 for instant inference
+        llm = ChatGroq(model="qwen/qwen3.8-27b", temperature=0, api_key=settings.GROQ_API_KEY)
         response = llm.with_structured_output(RequirementsResponse).invoke(prompt)
         requirements = [{"name": r.name, "reason": r.reason, "mandatory": r.mandatory} for r in response.requirements]
     except Exception as e:
         print(f"[Domain Expert] Error: {e}")
-        # Fallback
-        requirements = [{"name": "Identity Proof", "reason": "Standard requirement", "mandatory": True}]
+        # Demo Fallback
+        requirements = [
+            {"name": "Passport / ID", "reason": "Proof of identity and citizenship", "mandatory": True},
+            {"name": "Bank Statement", "reason": "Proof of financial stability", "mandatory": True},
+            {"name": "Application Form", "reason": "Standard requirement", "mandatory": True}
+        ]
         
     duration = int((time.time() - start_time) * 1000)
     

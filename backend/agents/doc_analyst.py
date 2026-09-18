@@ -43,8 +43,8 @@ def doc_analyst_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             }]
         }
         
-    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0, api_key=settings.GEMINI_API_KEY)
-    vision_llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0, api_key=settings.GEMINI_API_KEY)
+    llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", temperature=0, api_key=settings.GEMINI_API_KEY_2, max_retries=1, timeout=10)
+    vision_llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", temperature=0, api_key=settings.GEMINI_API_KEY_2, max_retries=1, timeout=15)
     
     for doc in user_documents:
         filepath = doc.file_path

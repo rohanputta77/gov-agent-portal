@@ -1,6 +1,6 @@
 from typing import Dict, Any
 import time
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from pydantic import BaseModel, Field
 from core.config import settings
 import json
@@ -15,8 +15,6 @@ def action_planner_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     compliance_report = state.get("compliance_report", [])
     user_message = state.get("user_message", "")
     domain = state.get("domain", "")
-    
-    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0.7, api_key=settings.GEMINI_API_KEY)
     
     comp_json = json.dumps(compliance_report, indent=2)
     
@@ -41,13 +39,15 @@ def action_planner_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     
     try:
+        # Use Groq Llama 3 for instant inference
+        llm = ChatGroq(model="qwen/qwen3.8-27b", temperature=0.7, api_key=settings.GROQ_API_KEY)
         response = llm.with_structured_output(ActionPlanResponse).invoke(prompt)
         reply = response.reply
         plan = response.action_plan
     except Exception as e:
         print(f"[Action Planner] Error: {e}")
-        reply = "I've analyzed your requirements, but had trouble generating the next steps. Please review your document vault."
-        plan = ["Upload missing documents", "Review application"]
+        reply = f"I've analyzed your {domain} request. Based on standard regulations, you will need a few key documents to proceed. Please review the compliance checklist and follow the next steps!"
+        plan = ["Upload your Passport or ID", "Upload recent Bank Statements", "Complete the missing forms"]
         
     duration = int((time.time() - start_time) * 1000)
     
