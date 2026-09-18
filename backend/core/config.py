@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./bureaucracy.db"
     GEMINI_API_KEY: str = ""
     UPLOAD_DIR: str = "./uploads"
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000" # Comma separated list of origins
 
     class Config:
         env_file = ".env"
