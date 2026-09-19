@@ -52,7 +52,12 @@ def complete_action(action_id: int, db: Session = Depends(get_db)):
     if wf:
         all_actions = db.query(Action).filter(Action.workflow_id == wf.id).all()
         completed = sum(1 for a in all_actions if a.status == "COMPLETED")
-        wf.progress = (completed / len(all_actions)) * 100 if all_actions else 0
+        
+        all_reqs = db.query(Requirement).filter(Requirement.workflow_id == wf.id).all()
+        available = sum(1 for r in all_reqs if r.status == "AVAILABLE")
+        
+        total = len(all_actions) + len(all_reqs)
+        wf.progress = ((completed + available) / total) * 100 if total > 0 else 0
 
         audit = AuditLog(
             workflow_id=wf.id,

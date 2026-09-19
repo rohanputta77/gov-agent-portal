@@ -6,6 +6,7 @@ const STATUS_CONFIG: Record<string, { icon: string; color: string; bg: string; l
   AVAILABLE:  { icon: "✓", color: "text-emerald-700", bg: "bg-emerald-50",  label: "Available"  },
   MISSING:    { icon: "✕", color: "text-red-600",     bg: "bg-red-50",      label: "Missing"    },
   EXPIRED:    { icon: "⚠", color: "text-amber-600",   bg: "bg-amber-50",    label: "Expired"    },
+  NEEDS_REVIEW: { icon: "!", color: "text-amber-600", bg: "bg-amber-100",   label: "Needs Review" },
 };
 
 interface Props {

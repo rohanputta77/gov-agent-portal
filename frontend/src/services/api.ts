@@ -24,6 +24,9 @@ export const api = {
       body: JSON.stringify({ domain, message, history }),
     }).then(handleResponse),
 
+  getChatHistory: (domain: string, userId = 1) =>
+    fetch(`${API_BASE}/chat/history/${domain}?user_id=${userId}`).then(handleResponse),
+
   // Workflows
   getWorkflowDefinitions: () =>
     fetch(`${API_BASE}/workflows/definitions`).then(handleResponse),
@@ -46,7 +49,7 @@ export const api = {
     formData.append("file", file);
     formData.append("doc_type", docType);
     formData.append("user_id", "1");
-    return fetch(`${API_BASE}/documents`, { method: "POST", body: formData }).then(handleResponse);
+    return fetch(`${API_BASE}/documents/`, { method: "POST", body: formData }).then(handleResponse);
   },
 
   deleteDocument: (documentId: number) =>

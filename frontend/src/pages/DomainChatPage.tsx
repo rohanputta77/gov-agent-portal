@@ -8,14 +8,46 @@ interface Props {
 }
 
 export default function DomainChatPage({ domain, onNavigate }: Props) {
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([
-    { role: "assistant", content: `Hi! I'm your expert for ${domain}. What are you trying to accomplish today?` }
-  ]);
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [state, setState] = useState<any>(null);
   const [agentTrace, setAgentTrace] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Load history and state on mount
+    const loadState = async () => {
+      try {
+        const historyRes = await api.getChatHistory(domain);
+        if (historyRes.history && historyRes.history.length > 0) {
+          setMessages(historyRes.history);
+        } else {
+          setMessages([{ role: "assistant", content: `Hi! I'm your expert for ${domain}. What are you trying to accomplish today?` }]);
+        }
+
+        const workflows = await api.getUserWorkflows(1);
+        const domainWf = workflows.find((w: any) => w.domain === domain);
+        if (domainWf) {
+          setState({
+            goal: domainWf.name,
+            requirements: domainWf.requirements.map((r: any) => ({
+              name: r.doc_type,
+              status: r.status,
+              reason: r.status === "AVAILABLE" ? "Uploaded" : "Required"
+            })),
+            actions_needed: domainWf.actions.map((a: any) => ({
+              description: a.description,
+              status: a.status
+            }))
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load history", e);
+      }
+    };
+    loadState();
+  }, [domain]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -54,9 +86,11 @@ export default function DomainChatPage({ domain, onNavigate }: Props) {
   };
 
   const requirements = state?.requirements || [];
+  const actions = state?.actions_needed || [];
   const available = requirements.filter((r: any) => r.status === "AVAILABLE").length;
-  const total = requirements.length;
-  const progress = total > 0 ? Math.round((available / total) * 100) : 0;
+  const completedActs = actions.filter((a: any) => a.status === "COMPLETED").length;
+  const total = requirements.length + actions.length;
+  const progress = total > 0 ? Math.round(((available + completedActs) / total) * 100) : 0;
 
   return (
     <div className="flex h-[calc(100vh-6rem)] gap-6 animate-slide-up">
@@ -172,12 +206,14 @@ export default function DomainChatPage({ domain, onNavigate }: Props) {
                   <div className="shrink-0 mt-0.5">
                     {req.status === "AVAILABLE" ? (
                       <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-bold">✓</div>
+                    ) : req.status === "NEEDS_REVIEW" || req.status === "EXPIRED" ? (
+                      <div className="w-5 h-5 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold">!</div>
                     ) : (
                       <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-300" />
                     )}
                   </div>
                   <div>
-                    <p className={`text-sm font-semibold ${req.status === "AVAILABLE" ? "text-slate-400 line-through" : "text-slate-700"}`}>
+                    <p className={`text-sm font-semibold ${req.status === "AVAILABLE" ? "text-slate-400 line-through" : req.status === "NEEDS_REVIEW" || req.status === "EXPIRED" ? "text-amber-700" : "text-slate-700"}`}>
                       {req.name}
                     </p>
                     <p className="text-xs text-slate-400 mt-0.5 leading-snug">{req.reason}</p>

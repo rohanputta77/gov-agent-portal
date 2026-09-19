@@ -14,6 +14,7 @@ ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
 MAX_SIZE_MB = 10
 
 
+@router.get("")
 @router.get("/")
 def list_documents(user_id: int = 1, db: Session = Depends(get_db)):
     docs = db.query(Document).filter(Document.user_id == user_id).all()
@@ -30,6 +31,7 @@ def list_documents(user_id: int = 1, db: Session = Depends(get_db)):
     ]
 
 
+@router.post("")
 @router.post("/")
 async def upload_document(
     file: UploadFile = File(...),
@@ -37,44 +39,56 @@ async def upload_document(
     user_id: int = Form(1),
     db: Session = Depends(get_db),
 ):
-    ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed: {ALLOWED_EXTENSIONS}")
+    try:
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed: {ALLOWED_EXTENSIONS}")
 
-    # Read and check size
-    contents = await file.read()
-    if len(contents) > MAX_SIZE_MB * 1024 * 1024:
-        raise HTTPException(status_code=400, detail=f"File size exceeds {MAX_SIZE_MB}MB limit")
+        # Read and check size
+        contents = await file.read()
+        if len(contents) > MAX_SIZE_MB * 1024 * 1024:
+            raise HTTPException(status_code=400, detail=f"File size exceeds {MAX_SIZE_MB}MB limit")
 
-    safe_filename = f"{user_id}_{file.filename.replace(' ', '_')}"
-    file_path = os.path.join(settings.UPLOAD_DIR, safe_filename)
-    with open(file_path, "wb") as f:
-        f.write(contents)
+        safe_filename = f"{user_id}_{file.filename.replace(' ', '_')}"
+        file_path = os.path.join(settings.UPLOAD_DIR, safe_filename)
+        with open(file_path, "wb") as f:
+            f.write(contents)
 
-    db_doc = Document(
-        name=file.filename,
-        file_path=file_path,
-        doc_type=doc_type,
-        status="Valid",
-        user_id=user_id,
-    )
-    db.add(db_doc)
+        # Ensure user exists to avoid foreign key violation
+        from models.user import User
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            user = User(id=user_id, email=f"user{user_id}@example.com", full_name=f"User {user_id}")
+            db.add(user)
+            db.commit()
 
-    audit = AuditLog(
-        user_id=user_id,
-        action_description=f"Uploaded document: {file.filename} (Type: {doc_type})"
-    )
-    db.add(audit)
-    db.commit()
-    db.refresh(db_doc)
+        db_doc = Document(
+            name=file.filename,
+            file_path=file_path,
+            doc_type=doc_type,
+            status="Pending Analysis",
+            user_id=user_id,
+        )
+        db.add(db_doc)
 
-    return {
-        "id": db_doc.id,
-        "name": db_doc.name,
-        "doc_type": db_doc.doc_type,
-        "status": db_doc.status,
-        "upload_date": db_doc.upload_date.isoformat(),
-    }
+        audit = AuditLog(
+            user_id=user_id,
+            action_description=f"Uploaded document: {file.filename} (Type: {doc_type})"
+        )
+        db.add(audit)
+        db.commit()
+        db.refresh(db_doc)
+
+        return {
+            "id": db_doc.id,
+            "name": db_doc.name,
+            "doc_type": db_doc.doc_type,
+            "status": db_doc.status,
+            "upload_date": db_doc.upload_date.isoformat(),
+        }
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=400, detail=f"Internal Error: {str(e)}\n{traceback.format_exc()}")
 
 
 @router.delete("/{document_id}")
