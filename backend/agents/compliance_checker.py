@@ -36,7 +36,8 @@ def compliance_checker_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     Your job:
     1. Cross-reference the required documents with the analyzed documents.
     2. Determine if each requirement is AVAILABLE, MISSING, EXPIRED, or NEEDS_REVIEW.
-    3. Note any warnings (e.g. name mismatch, document expired).
+       - CRITICAL RULE: If a matched document has `is_valid: false`, its status MUST be NEEDS_REVIEW, never AVAILABLE.
+    3. Note any warnings (e.g. name mismatch, document expired, document is invalid).
     4. Calculate an overall readiness score from 0 to 100.
     """
     
@@ -50,12 +51,18 @@ def compliance_checker_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         print(f"[Compliance Checker] Error: {e}")
         # Demo fallback
         has_docs = len(analyzed_documents) > 0
+        doc_is_valid = analyzed_documents[0].get("is_valid", True) if has_docs else False
+        
+        doc_status = "MISSING"
+        if has_docs:
+            doc_status = "AVAILABLE" if doc_is_valid else "NEEDS_REVIEW"
+
         report = [
-            {"requirement": "Passport / ID", "status": "AVAILABLE" if has_docs else "MISSING", "matched_doc": analyzed_documents[0]['original_name'] if has_docs else "", "warnings": ""},
+            {"requirement": "Passport / ID", "status": doc_status, "matched_doc": analyzed_documents[0]['original_name'] if has_docs else "", "warnings": "Invalid document detected" if doc_status == "NEEDS_REVIEW" else ""},
             {"requirement": "Bank Statement", "status": "MISSING", "matched_doc": "", "warnings": "Must be from last 3 months"},
             {"requirement": "Application Form", "status": "MISSING", "matched_doc": "", "warnings": ""}
         ]
-        readiness = 33.3 if has_docs else 0.0
+        readiness = 33.3 if doc_status == "AVAILABLE" else 0.0
         
     duration = int((time.time() - start_time) * 1000)
     

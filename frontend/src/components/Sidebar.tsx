@@ -1,4 +1,5 @@
 import type { Page } from "../App";
+import { useAuth } from "../contexts/AuthContext";
 
 interface SidebarProps {
   currentPage: Page;
@@ -13,6 +14,13 @@ const navItems = [
 ] as const;
 
 export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
+  const { user, logout } = useAuth();
+  
+  // Extract initials from user name or email
+  const initials = user?.name 
+    ? user.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()
+    : user?.email.substring(0, 2).toUpperCase() || "US";
+
   return (
     <aside className="w-64 flex flex-col bg-[#0b1320] text-slate-300 border-r border-slate-800/60 shadow-2xl shrink-0">
       {/* Logo */}
@@ -31,11 +39,11 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       {/* User */}
       <div className="px-6 py-5 border-b border-slate-800/60 bg-slate-900/20">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 text-xs font-bold">
-            US
+          <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 text-xs font-bold shrink-0">
+            {initials}
           </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-200">Citizen Portal</p>
+          <div className="truncate">
+            <p className="text-sm font-semibold text-slate-200 truncate">{user?.name || user?.email}</p>
             <p className="text-xs text-slate-500">Verified Identity ✓</p>
           </div>
         </div>
@@ -63,11 +71,18 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       </nav>
 
       {/* Footer note */}
-      <div className="px-6 py-5 border-t border-slate-800/60 bg-slate-900/30">
+      <div className="px-6 py-5 border-t border-slate-800/60 bg-slate-900/30 flex justify-between items-center">
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <span className="text-green-500">●</span> 
           <span>Secure Gov Network</span>
         </div>
+        <button 
+          onClick={logout}
+          className="text-xs text-slate-400 hover:text-white transition-colors"
+          title="Sign out"
+        >
+          Sign Out
+        </button>
       </div>
     </aside>
   );
