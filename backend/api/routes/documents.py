@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from database.db import get_db
 from models.document import Document
 from models.audit_log import AuditLog
+from models.user import User
+from api.deps import get_current_user
 from core.config import settings
 import os, shutil
 
@@ -16,8 +18,8 @@ MAX_SIZE_MB = 10
 
 @router.get("")
 @router.get("/")
-def list_documents(user_id: int = 1, db: Session = Depends(get_db)):
-    docs = db.query(Document).filter(Document.user_id == user_id).all()
+def list_documents(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    docs = db.query(Document).filter(Document.user_id == current_user.id).all()
     return [
         {
             "id": d.id,
@@ -36,7 +38,7 @@ def list_documents(user_id: int = 1, db: Session = Depends(get_db)):
 async def upload_document(
     file: UploadFile = File(...),
     doc_type: str = Form(...),
-    user_id: int = Form(1),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
@@ -49,30 +51,22 @@ async def upload_document(
         if len(contents) > MAX_SIZE_MB * 1024 * 1024:
             raise HTTPException(status_code=400, detail=f"File size exceeds {MAX_SIZE_MB}MB limit")
 
-        safe_filename = f"{user_id}_{file.filename.replace(' ', '_')}"
+        safe_filename = f"{current_user.id}_{file.filename.replace(' ', '_')}"
         file_path = os.path.join(settings.UPLOAD_DIR, safe_filename)
         with open(file_path, "wb") as f:
             f.write(contents)
-
-        # Ensure user exists to avoid foreign key violation
-        from models.user import User
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            user = User(id=user_id, email=f"user{user_id}@example.com", full_name=f"User {user_id}")
-            db.add(user)
-            db.commit()
 
         db_doc = Document(
             name=file.filename,
             file_path=file_path,
             doc_type=doc_type,
             status="Pending Analysis",
-            user_id=user_id,
+            user_id=current_user.id,
         )
         db.add(db_doc)
 
         audit = AuditLog(
-            user_id=user_id,
+            user_id=current_user.id,
             action_description=f"Uploaded document: {file.filename} (Type: {doc_type})"
         )
         db.add(audit)
@@ -92,8 +86,8 @@ async def upload_document(
 
 
 @router.delete("/{document_id}")
-def delete_document(document_id: int, user_id: int = 1, db: Session = Depends(get_db)):
-    doc = db.query(Document).filter(Document.id == document_id, Document.user_id == user_id).first()
+def delete_document(document_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    doc = db.query(Document).filter(Document.id == document_id, Document.user_id == current_user.id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -101,7 +95,7 @@ def delete_document(document_id: int, user_id: int = 1, db: Session = Depends(ge
         os.remove(doc.file_path)
 
     audit = AuditLog(
-        user_id=user_id,
+        user_id=current_user.id,
         action_description=f"Deleted document: {doc.name}"
     )
     db.add(audit)

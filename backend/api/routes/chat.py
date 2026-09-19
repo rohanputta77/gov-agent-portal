@@ -12,6 +12,9 @@ from models.action import Action
 from agents.graph import app
 from agents.state import AgentState
 
+from models.user import User
+from api.deps import get_current_user
+
 router = APIRouter()
 
 class ChatMessage(BaseModel):
@@ -22,22 +25,21 @@ class ChatRequest(BaseModel):
     domain: str
     message: str
     history: List[ChatMessage] = []
-    user_id: int = 1
 
 @router.get("/history/{domain}")
-def get_chat_history(domain: str, user_id: int = 1, db: Session = Depends(get_db)):
-    session = db.query(ChatSession).filter(ChatSession.user_id == user_id, ChatSession.domain == domain).first()
+def get_chat_history(domain: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    session = db.query(ChatSession).filter(ChatSession.user_id == current_user.id, ChatSession.domain == domain).first()
     if session:
         return {"history": json.loads(session.history)}
     return {"history": []}
 
 @router.post("/")
-def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
+def chat_with_agent(request: ChatRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         # Load or create ChatSession
-        chat_session = db.query(ChatSession).filter(ChatSession.user_id == request.user_id, ChatSession.domain == request.domain).first()
+        chat_session = db.query(ChatSession).filter(ChatSession.user_id == current_user.id, ChatSession.domain == request.domain).first()
         if not chat_session:
-            chat_session = ChatSession(user_id=request.user_id, domain=request.domain, history="[]")
+            chat_session = ChatSession(user_id=current_user.id, domain=request.domain, history="[]")
             db.add(chat_session)
             db.commit()
             db.refresh(chat_session)
@@ -48,13 +50,13 @@ def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
         db_history.append({"role": "user", "content": request.message})
         
         # Fetch user's uploaded documents from the Document Vault
-        user_docs = db.query(Document).filter(Document.user_id == request.user_id).all()
+        user_docs = db.query(Document).filter(Document.user_id == current_user.id).all()
         
         initial_state: AgentState = {
             "user_message": request.message,
             "chat_history": db_history,
             "domain": request.domain,
-            "user_id": request.user_id,
+            "user_id": current_user.id,
             "user_documents": user_docs,
             "requirements": [],
             "analyzed_documents": [],
@@ -85,10 +87,10 @@ def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
         db.commit()
 
         # Update or Create Workflow summary
-        workflow = db.query(Workflow).filter(Workflow.user_id == request.user_id, Workflow.domain == request.domain).first()
+        workflow = db.query(Workflow).filter(Workflow.user_id == current_user.id, Workflow.domain == request.domain).first()
         if not workflow:
             workflow = Workflow(
-                user_id=request.user_id, 
+                user_id=current_user.id, 
                 domain=request.domain, 
                 name=f"{request.domain} Application",
                 workflow_type=request.domain,
