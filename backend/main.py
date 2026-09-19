@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from database.db import engine, Base
 import models
-from api.routes import workflows, documents, agent, audit_logs, chat
+from api.routes import workflow_routes, documents, agent, audit_logs, chat
 import workflows as wf_module  # triggers registration of all workflow definitions
 
 # Create all tables on startup
@@ -37,7 +37,7 @@ else:
 
 
 # API Routers
-app.include_router(workflows.router, prefix=f"{settings.API_V1_STR}/workflows", tags=["workflows"])
+app.include_router(workflow_routes.router, prefix=f"{settings.API_V1_STR}/workflows", tags=["workflows"])
 app.include_router(documents.router, prefix=f"{settings.API_V1_STR}/documents", tags=["documents"])
 app.include_router(agent.router, prefix=f"{settings.API_V1_STR}/agent", tags=["agent"])
 app.include_router(chat.router, prefix=f"{settings.API_V1_STR}/chat", tags=["chat"])
